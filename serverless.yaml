@@ -1,0 +1,163 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    v1.docs.serverless.com
+#
+# Happy Coding!
+
+service: serverless-graphql-dadjokes
+provider:
+  name: aws
+  runtime: nodejs4.3
+
+# you can overwrite defaults here
+defaults:
+    stage: dev
+    region: us-east-1
+
+# you can add packaging information here
+#package:
+#    include:
+#        - include-me.js
+#    exclude:
+#        - exclude-me.js
+#    artifact: my-service-code.zip
+
+functions:
+    hello:
+        handler: handler.hello
+        events:
+            - http:
+                path: greet
+                method: get
+    graphql:
+        handler: handler.graphql
+        events:
+            - http:
+                path: graphql
+                method: post
+                cors: true
+                authorizationType: none
+                authorizerFunction: false
+                apiKeyRequired: false
+                requestParameters:
+                requestTemplates:
+                  application/json: '{"query" : $input.json("$")}'
+                responses:
+                  '400':
+                    statusCode: '400'
+                  default:
+                    statusCode: '200'
+                    responseParameters:
+                    responseModels:
+                    responseTemplates:
+                    application/json: ""
+
+#       you can add any of the following events
+#       events:
+#           - http:
+#               path: users/create
+#               method: get
+#           - s3: ${bucket}
+#           - schedule: rate(10 minutes)
+#           - sns: greeter-topic
+
+# you can add CloudFormation resource templates here
+resources:
+    Resources:
+      # generated using json2yaml cloudformation-resources.json --depth 8
+      IamRoleLambda:
+        Type: 'AWS::IAM::Role'
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Principal:
+                  Service: [lambda.amazonaws.com]
+                Action:
+                  - 'sts:AssumeRole'
+          Path: /
+      IamPolicyLambda:
+        Type: 'AWS::IAM::Policy'
+        Properties:
+          PolicyName: '${stage}-${service}-lambda'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:${region}:*:*'
+              -
+                Effect: Allow
+                Action:
+                  - '*'
+                Resource: 'arn:aws:dynamodb:${region}:*:table/${service}-jokes-${stage}'
+              -
+                Effect: Allow
+                Action:
+                  - '*'
+                Resource: 'arn:aws:dynamodb:${region}:*:table/${service}-jokeauthors-${stage}'
+          Roles:
+            -
+              Ref: IamRoleLambda
+      JokesDynamo:
+        Type: 'AWS::DynamoDB::Table'
+        DeletionPolicy: Retain
+        Properties:
+          AttributeDefinitions:
+            -
+              AttributeName: id
+              AttributeType: S
+          KeySchema:
+            -
+              AttributeName: id
+              KeyType: HASH
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+          TableName: '${service}-jokes-${stage}'
+      JokeAuthorsDynamo:
+        Type: 'AWS::DynamoDB::Table'
+        DeletionPolicy: Retain
+        Properties:
+          AttributeDefinitions:
+            -
+              AttributeName: id
+              AttributeType: S
+          KeySchema:
+            -
+              AttributeName: id
+              KeyType: HASH
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+          TableName: '${service}-jokeauthors-${stage}'
+    Outputs:
+      IamRoleArnLambda:
+        Description: 'ARN of the lambda IAM role'
+        Value:
+          'Fn::GetAtt':
+            - IamRoleLambda
+            - Arn
+
+#resources:
+#    Resources:
+#      newResource:
+#        Type: AWS::S3::Bucket
+#        Properties:
+#          BucketName: newBucket
+
+
+
